@@ -1,5 +1,6 @@
 #coding=utf-8
 import matplotlib.pyplot as plt
+import  math
 import numpy as np
 from datastruct.kdtree import kdTree
 
@@ -17,7 +18,7 @@ def KNN_K(X=[(1,1),(1,3),(4,1),(6,4),(0,0),(2,4),(3.5,5),(7,6),(5,2)], Y=[0,0,0,
         for j in range(0, 100):
             j = j/10.0
             #得到点(i, j)到所有训练集点的(距离,类别)。然后根据距离排序,得到前K近点所对应的类别
-            dis = map(lambda x, idx:((x[0]-i)*(x[0]-i)+(x[1]-j)*(x[1]-j), Y[idx]),X, range(0, 9))
+            dis = map(lambda x, idx:(L_p(x,(i,j), p=2), Y[idx]),X, range(0, 9))
             dis = sorted(dis)
             for h in k:
                 topK = map(lambda x: x[1], dis[:h])
@@ -64,8 +65,16 @@ def KNN_K(X=[(1,1),(1,3),(4,1),(6,4),(0,0),(2,4),(3.5,5),(7,6),(5,2)], Y=[0,0,0,
         plt.scatter(label0_x, label0_y, s=100,c='red')
         plt.scatter(label1_x, label1_y, s=100,c='green')
 
-
         plt.show()
+def L_p(data1, data2, p=2):
+    if len(data1) != len(data2):
+            print '长度不一致'
+            return -1
+    dis = 0
+    for i in range(0, len(data1)):
+        dis += pow(math.fabs(data1[i]-data2[i]), p)
+    #print  dis
+    return  math.pow(dis, 1.0/p)
 
 class KNN(object):
     def __init__(self):
@@ -81,7 +90,7 @@ class KNN(object):
             print data,"的类别为",self.Y[idx]
 
 if __name__=="__main__":
-    #KNN_K()
+    KNN_K()
     X = np.array([[2,3,1],[5,4,1],[9,6,1],[4,7,1],[8,1,1],[7,2,1]])
     Y = [0, 0, 1, 0, 1, 2]
     knn = KNN()
