@@ -12,6 +12,23 @@ class DecisionTree(object):
         datasets = self.trans_matrix_2_dict(datasets)
         self.decisiontree = self.build_decisiontree(node=self.root, dataset=datasets, labels=labels, type="ID3")
         pass
+    def C45(self, datasets, labels):
+        self.root = decisionNode()
+        datasets = self.trans_matrix_2_dict(datasets)
+        self.decisiontree = self.build_decisiontree(node=self.root, dataset=datasets, labels=labels, type="C4.5")
+        pass
+
+    def CLASS_DT(self, datasets, labels):
+        self.root = decisionNode()
+        datasets = self.trans_matrix_2_dict(datasets)
+        self.decisiontree = self.build_decisiontree(node=self.root, dataset=datasets, labels=labels, type="class")
+        pass
+
+    def REGESSION_DT(self, datasets, labels):
+        self.root = decisionNode()
+        datasets = self.trans_matrix_2_dict(datasets)
+        self.decisiontree = self.build_decisiontree(node=self.root, dataset=datasets, labels=labels, type="regession")
+        pass
 
     def build_decisiontree(self, node, dataset, labels, gain_threshold=0.05, type="ID3"):
         if len(dataset) == 0:
@@ -23,6 +40,29 @@ class DecisionTree(object):
             return node
 
         #计算最优的特征
+        if (type == "ID3" or type == "C4.5"):
+            idx, gain, child_datasets, child_labels = self.chose_IC_best_feature(dataset, labels, type)
+        elif (type == "class" or type == "regession"):
+            idx, value, gain, child_datasets, child_labels = self.chose_CART_best_feature(dataset, labels, type)
+        # print child_datasets
+        # print idx,":",gain
+
+        # 如信息增益小于阈值,则该节点为叶节点,停止建树,选择类别中最多的类作为本节点的类别
+        if gain < gain_threshold:
+            (num, label)=max(map(lambda x: (labels.count(x), x), labels))
+            node.label = label
+            return node
+
+        for i in child_datasets:
+            child =  decisionNode()
+            child = self.build_decisiontree(child, child_datasets[i], child_labels[i], gain_threshold, type)
+            if None != child:
+                # print "第",idx,"特征：", i,"\t",child.label
+                node.child[i] = child
+        return node
+
+    # ID3,C4.5选择最优特征以及对应的增益值
+    def chose_IC_best_feature(self, dataset, labels, type):
         max_gain = -1.0
         max_idx = -1
         H_D = self.get_entropy_from_labels(labels)
@@ -40,38 +80,70 @@ class DecisionTree(object):
                 gain = H_D-H_D_A
             else:
                 gain = (H_D-H_D_A)/H_A_D
-            # print idx, gain
+
+            # print idx, H_D, H_D_A, gain
             if (max_gain <gain):
                 max_gain = gain
                 max_idx = idx
-        # print max_idx,":",max_gain
-
-        # 如信息增益小于阈值,则该节点为叶节点,停止建树,选择类别中最多的类作为本节点的类别
-        if max_gain < gain_threshold:
-            (num, label)=max(map(lambda x: (labels.count(x), x), labels))
-            node.label = label
-            return node
 
         # 切分出当且维的特征数据
         unique_feature_list = set(dataset[max_idx])
+        child_datasets = {}
+        child_labels = {}
         now_featur = {}
         now_featur[max_idx] = dataset[max_idx]
         dataset.pop(max_idx)
 
-        # 根据不同的特征值建立子树
+        # 提取每个子节点对应的数据集
         for i in unique_feature_list:
             filter_idx_list = self.split_dataset(now_featur, max_idx, i)
-            child = decisionNode()
             child_dataset = {}
             for (key, lists) in dataset.items():
                 child_dataset[key] = list(map(lambda idx:dataset[key][idx], filter_idx_list))
+            child_datasets[i] = child_dataset
+            child_labels[i] = list(map(lambda i: labels[i], filter_idx_list))
 
-            child = self.build_decisiontree(child, child_dataset,list(map(lambda i: labels[i], filter_idx_list)), gain_threshold, type)
-            if None != child:
-                # print "第",max_idx,"特征：", i,"\t",child.label
-                node.child[i] = child
-        return node
+        return max_idx, max_gain, child_datasets, child_labels
 
+    # CART选择最优特征以及对应的增益值,子节点的数据集
+    def chose_CART_best_feature(self, dataset, labels, type="class"):
+        min_gain = 1
+        min_idx = -1
+        min_value = 0.0
+        for (idx, feature_lists) in dataset.items():
+            unique_feature_list = list(set(feature_lists))
+            for i in unique_feature_list:
+                filter_list = self.split_dataset(dataset, idx, i)
+                other_list = self.split_dataset(dataset, idx, i, filter_type="neq")
+                # print filter_list
+                # print other_list
+                gini_D_A = (float(len(filter_list))/len(labels))*(self.get_gini_from_labels(map(lambda i:labels[i],filter_list)))
+                gini_D_A += (float(len(other_list))/len(labels))*(self.get_gini_from_labels(map(lambda i:labels[i],other_list)))
+                # print i, filter_list
+                if gini_D_A < min_gain:
+                    min_gain = gini_D_A
+                    min_idx = idx
+                    min_value = i
+        # print min_gain, min_idx, min_value
+        # 切分数据集
+        filter_list = self.split_dataset(dataset, min_idx, min_value)
+        other_list = self.split_dataset(dataset, min_idx, min_value, filter_type="neq")
+        dataset.pop(min_idx)
+
+        child_datasets = {}
+        child_dataset = {}
+        for (key, lists) in dataset.items():
+                child_dataset[key] = list(map(lambda idx:dataset[key][idx], filter_list))
+        child_datasets[min_value] = child_dataset
+        child_dataset = {}
+        for (key, lists) in dataset.items():
+                child_dataset[key] = list(map(lambda idx:dataset[key][idx], other_list))
+        child_datasets[None] = child_dataset
+        child_labels = {}
+        child_labels[min_value] = list(map(lambda i:labels[i], filter_list))
+        child_labels[None] = list(map(lambda i:labels[i], other_list))
+
+        return min_idx, min_value, min_gain, child_datasets, child_labels
     # 将numpy矩阵组成的数据集转换成以维度作为key的dict形式
     # 原因是 1 方便数据切分,数据集中的下标没有存在意义,而维度下标一直使用
     #       2 矩阵形式的数据在决策树模型中没有计算联系,不同维数据间没有交集
@@ -85,14 +157,16 @@ class DecisionTree(object):
         #     print idx, lists
         return feature_dict
 
-    # 根据特征的维度,属性值以及切分方式提取符合切分条件的数据
+    # 根据特征的维度,属性值以及切分方式提取符合切分条件的数据·
     # 返回符合条件的数据下标所组成的list
     def split_dataset(self, dataset, idx, value, filter_type="eq"):
         type_map_fuc = {"eq":(lambda x, y: x==y),
                     "greater":(lambda x, y: x>y),
                     "low": (lambda x, y: x<y),
                     "geq": (lambda x, y: x>=y),
-                    "leq": (lambda x, y: x<=y)}
+                    "leq": (lambda x, y: x<=y),
+                    "neq": (lambda  x, y: x != y)
+                }
         if filter_type not in type_map_fuc:
             print filter_type,"不是符合输入的条件"
             return None
@@ -112,9 +186,8 @@ class DecisionTree(object):
 
     # 输入partiton的类别list 得到gini指数
     def get_gini_from_labels(self, labels=[]):
-        gini = 0.0
-
         Ps = self.get_p(labels)
+        gini = 0.0
         for (label, p) in Ps.items():
             # print label, p
             gini += p*p
@@ -170,7 +243,8 @@ class DecisionTree(object):
         # for i in range(0, len(dataset)):
         #     print (i+1), dataset[i], labels[i]
         # print self.get_entropy_from_labels(labels)
-        self.ID3(dataset, labels)
+        # self.chose_CART_best_feature(self.trans_matrix_2_dict(dataset), labels)
+        self.CLASS_DT(dataset, labels)
 
 class decisionNode():
     def __init__(self, data=-1, depth=-1, idx=-1):
