@@ -57,10 +57,9 @@ class SVC(object):
         b2_new = -self.E[a2] - y1 * self.K[a1][a2] * (a1_new - a1_old) - y2 * self.K[a2][a2] * (
             a2_new - a2_old) + self.b
         if (0 < a1_new) and (a1_new < self.C) and (0 < a2_new) and (a2_new < self.C):
-            return  b1_new[0]
+            return b1_new[0]
         else:
             return (b1_new[0] + b2_new[0]) / 2.0
-
 
     # 判别函数g(x)
     def g_x(self, x):
@@ -178,7 +177,7 @@ class SVC(object):
             print second_a
             a1_old = self.a[first_a]
             a2_old = self.a[second_a]
-            # 更新拉格朗日乘子
+            # 更新拉格朗日乘子 
             self.update_a(first_a, second_a)
             print self.a[first_a], self.a[second_a]
             # 更新W与B
